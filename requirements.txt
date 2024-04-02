@@ -1,0 +1,4 @@
+gsmmutils @ git+https://github.com/ecunha1996/GSMMutils.git
+jupyter
+matplotlib~=3.5.0
+tqdm
