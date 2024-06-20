@@ -60,6 +60,7 @@ T_GLYNA1tv__vacmem
 R09394__mito
 R03596__cytop
 R11891__cytop
+BMGR5929__chlo
 R12479__golg
 R03270__chlo
 R12161__cytop
@@ -118,7 +119,6 @@ R07330__er
 R04929__cytop
 EX_C05684__dra
 R00330__mito
-TI2903719tr__ermem
 R08310__cytop
 R04019__cytop
 T_2OBUTtx__permem
@@ -165,6 +165,7 @@ R03401__pero
 R00026__chlo
 R00965__chlo
 R07893__mito
+BMGR0479__chlo
 EX_C07572__dra
 R09009__cytop
 TZ2900015th__chlomem
@@ -228,6 +229,7 @@ R07894__pero
 R03220__mito
 R00514__nucl
 R10508__chlo
+BMGR0524__chlo
 R01411__cytop
 T_DCYTtm__mitmem
 R02978__cytop
@@ -266,6 +268,7 @@ R04740__mito
 R04405__cytop
 RXN_19708__er
 TI3000243t__plas
+T_DAG160181tr__ermem
 R08967__cytop
 R08280__chlo
 R11893__cytop
@@ -295,6 +298,7 @@ R02654__cytop
 T_ORNARGtm__mitmem
 T_SELTth__chlomem
 R03920__chlo
+BMGR0604__chlo
 T_ABCFACOA200th__chlomem
 R08183__cytop
 R04746__mito
@@ -322,7 +326,6 @@ R00910__cytop
 R06953__chlo
 T_CLte__plas
 R03662__mito
-MGDGG_161_160__chlo
 R05085__chlo
 R08557__cytop
 R03950__chlo
@@ -404,7 +407,6 @@ R07562__chlo
 R04037__cytop
 R07054__cytop
 T_ASPNNA1tv__vacmem
-MGDGS_161_160__chlo
 R03634__cytop
 R02480__mito
 R00328__nucl
@@ -429,6 +431,7 @@ R00159__nucl
 R04355__chlo
 R02565__er
 T_UDPtn__nucmem
+T_PA181181tr__ermem
 R03601__cytop
 R07893__pero
 R07244__cytop
@@ -523,6 +526,7 @@ R03186__cytop
 T_FA182tx__permem
 R01332__cytop
 RXN_9970__cytop
+BMGR0475__chlo
 R06520__er
 R02493__cytop
 R07238__chlo
@@ -618,6 +622,8 @@ R02355__er
 R02889__cytop
 R06590__chlo
 R01556__cytop
+BMGR0502__chlo
+T_DAG181181tr__ermem
 RXN_12721__chlo
 R00174__cytop
 R12376__er
@@ -628,6 +634,7 @@ R04666__cytop
 R02976__mito
 R03311__cytop
 R08270__cytop
+T_DAG180182tr__ermem
 ACOAOX180__pero
 T_TCYNTtm__mitmem
 T_DADNtm__mitmem
@@ -649,6 +656,7 @@ R08306__cytop
 R05577__mito
 R00221__chlo
 RXN_16562__er
+T_PA160181tr__ermem
 R03139__cytop
 R02080__cytop
 R01481__chlo
@@ -660,6 +668,7 @@ R07048__cytop
 R05345__chlo
 R04972__chlo
 R08569__chlo
+T_PA181160tr__ermem
 R02503__er
 R03656__mito
 R03434__cytop
@@ -672,11 +681,11 @@ EX_C00051__dra
 R03875__cytop
 EX_C05443__dra
 R04391__cytop
+T_DAG181160tr__ermem
 R07056__cytop
 R05731__er
 R03905__chlo
 R04184__vacu
-BMGR5309__er
 R02679__cytop
 R00694__mito
 R07045__cytop
@@ -713,6 +722,7 @@ RXN_7884__chlo
 R02971__cytop
 R03427__nucl
 R08265__cytop
+T_PA180182tr__ermem
 R02464__cytop
 TZ2900013tm__mitmem
 T_MI13456Ptn__nucmem
