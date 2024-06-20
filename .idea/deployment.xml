@@ -6,7 +6,7 @@
       <paths name="ecunha@tesla.di.uminho.pt:22 password">
         <serverdata>
           <mappings>
-            <mapping deploy="/home/ecunha/model_analysis" local="$PROJECT_DIR$" web="/" />
+            <mapping deploy="/home/ecunha/model_analysis" local="$PROJECT_DIR$" web="/home/ecunha/model_analysis" />
           </mappings>
         </serverdata>
       </paths>
