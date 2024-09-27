@@ -22,7 +22,7 @@
 "R01529__chlo":0.894,
 "R10092__mito":0.973,
 "R00344__mito":0.987,
-"T_ASPth__chlomem":1.102,
+"T_ASPth__chlomem":1.107,
 "R01523__chlo":1.421,
 "R00024__chlo":1.421,
 "T_LEUth__chlomem":1.48,
@@ -41,5 +41,5 @@
 "R05636__chlo":2.199,
 "R08689__chlo":2.199,
 "R05634__chlo":2.199,
-"R10092__cytop":2.266,
-"T_PPIth__chlomem":4.247}
+"R10092__cytop":2.282,
+"T_PPIth__chlomem":4.246}
