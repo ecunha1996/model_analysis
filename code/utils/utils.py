@@ -1,7 +1,9 @@
+import pandas as pd
+from gsmmutils import MyModel
 from gsmmutils.experimental.ExpMatrix import ExpMatrix
 from gsmmutils.io import write_simulation
 from tqdm import tqdm
-from cobra.flux_analysis import production_envelope
+from cobra.flux_analysis import production_envelope, pfba
 import seaborn as sns
 import matplotlib.pyplot as plt
 
@@ -60,3 +62,46 @@ def adjust_biomass(model, metabolite, macro_reaction, macromolecule, g_gdw):
             model.set_stoichiometry(biomass_copy, reactant.id, tmp)
     assert round(abs(sum([biomass_copy.metabolites[reactant] for reactant in biomass_copy.reactants if biomass_copy.metabolites[reactant] > -1])), 4) == 1
     return model, biomass_copy
+
+
+def get_ps_params(model):
+    sol = pfba(model)
+    photons_absorbed = sum(sol.fluxes[r.id] for r in model.reactions if r.id.startswith("PHOA"))
+    # print("using RUBISCO")
+    # print(sol['R00024__chlo']/photons_absorbed)
+    # print("using exchange co2")
+    # print("Quantum Yield")
+    qy = round(abs(sol['EX_C00011__dra']/photons_absorbed), 3)
+    # print(qy)
+    # print("Photosynthetic Quotient")
+    pq = round(abs(sol['EX_C00007__dra']/sol['EX_C00011__dra']), 3)
+    # print(pq)
+    # print("using PSII RUBISCO")
+    # print(sol["PSII__lum"]/sol['R00024__chlo'])
+    # print("using PSII exchange CO2 ")
+    # print(sol["PSII__lum"]/sol['EX_C00011__dra'])
+    return qy, pq
+
+
+def get_ps_params_multi(models: dict[str, MyModel]):
+    res = {}
+    for key, model in models.items():
+        res[key] = get_ps_params(model)
+    as_df = pd.DataFrame.from_dict(res, orient="index", columns=["QY", "PQ"])
+    return as_df
+
+def evaluate_light_sources(model):
+    light_sources = [reaction for reaction in model.reactions if reaction.id.startswith("PRISM")]
+    results = {}
+    max_growth = model.slim_optimize()
+    for light_reaction in light_sources:
+        with model as temp_model:
+            temp_model.reactions.e_Biomass__cytop.bounds = (max_growth*0.50, max_growth*0.50)
+            temp_model.objective = "EX_C00205__dra"
+            light_reaction.bounds = (0, 10000)
+            for other_reaction in light_sources:
+                if other_reaction.id != light_reaction.id:
+                    other_reaction.bounds = (0, 0)
+            sol = temp_model.slim_optimize()
+            results[light_reaction.id] = -sol
+    return results
