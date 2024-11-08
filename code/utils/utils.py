@@ -1,11 +1,9 @@
-import pandas as pd
-from gsmmutils import MyModel
-from gsmmutils.experimental.ExpMatrix import ExpMatrix
-from gsmmutils.io import write_simulation
-from tqdm import tqdm
-from cobra.flux_analysis import production_envelope, pfba
-import seaborn as sns
 import matplotlib.pyplot as plt
+import pandas as pd
+import seaborn as sns
+from cobra.flux_analysis import production_envelope, pfba
+from gsmmutils.model import MyModel
+
 
 def production_env_plot(model, reactions_map, x, y, z, prefix):
     prod_env = production_envelope(model, [x, y], objective=z, carbon_sources="EX_C00011__dra",

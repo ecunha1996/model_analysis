@@ -3,11 +3,10 @@ from os.path import join
 
 import numpy as np
 import pandas as pd
-from gsmmutils import MyModel
+from gsmmutils.model import MyModel
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from gsmmutils import MyModel
 import seaborn as sns
 from tqdm import tqdm
 import copy
@@ -163,7 +162,7 @@ def get_npq(model, coeff, conversion_factor, organism):
     model.add_cons_vars(same_flux)
     plt.rcParams['figure.figsize'] = (40, 20)
     max_photosynthesis = {"dsalina": 177.8, "ngaditana": 136.5, "plutheri": 44.7}
-    setp_size = {"dsalina": 50, "ngaditana": 50, "plutheri": 30}
+    step_size = {"dsalina": 50, "ngaditana": 50, "plutheri": 30}
     model.reactions.PSII__lum.bounds = (0, max_photosynthesis[organism])
     with model as tmp:
         old_co2 = pfba(tmp).fluxes["EX_C00011__dra"]
@@ -176,12 +175,12 @@ def get_npq(model, coeff, conversion_factor, organism):
     model.exchanges.EX_C00011__dra.lower_bound = old_co2
     npq = {}
     # uptake = range(int(round(abs(min_val), 0)), int(round(max_val, 0)), 100)
-    uptake = range(0, int(round(1550)), setp_size[organism])
+    uptake = range(0, int(round(1050)), step_size[organism])
     ros_reactions = {"FLV__chlo", "CEF__chlo",
-                     "NGAM_D1__chlo",
+                     # "NGAM_D1__chlo",
                      "R12570__chlo", "R09540__chlo",
                      "R00274__chlo", "R00017__mito",
-                     "PSII__lum", "R01195__chlo", "PSI__lum"
+                     "PSII__lum", "R01195__chlo", "PSI__lum", "PSIc6__lum"
                      }
     photosystems = {"PSII__lum", "R01195__chlo", "PSI__lum"}
     ros_reactions = {key: [0, 0, 0] for key in ros_reactions if key in model.reaction_ids}
@@ -195,14 +194,14 @@ def get_npq(model, coeff, conversion_factor, organism):
         model.reactions.NGAM__lum.bounds = (ngam, ngam)
         sol = model.maximize(value=False)
         if not isinstance(sol, int):
-            fva_sol = fva(model, list(ros_reactions.keys()), fraction_of_optimum=0.95, processes=6)
+            # fva_sol = fva(model, list(ros_reactions.keys()), fraction_of_optimum=0.95, processes=6)
             # print(sol.fluxes['DM_pho_loss__chlo'] / abs(sol.fluxes['EX_C00205__dra'])* coeff)
             heat = sol.fluxes['DM_pho_loss__chlo'] / (abs(sol.fluxes['EX_C00205__dra']) * coeff)
             # print(sol.fluxes["CEF_2__chlo"]/(sol.fluxes["CEF_2__chlo"]+ sol.fluxes["R01195__chlo"]))
             for r in ros_reactions:
                 ros_reactions[r][0] = sol.fluxes[r] / (abs(sol.fluxes['EX_C00205__dra']) * coeff)
-                ros_reactions[r][1] = fva_sol.loc[r, 'minimum'] / (abs(sol.fluxes['EX_C00205__dra']) * coeff)
-                ros_reactions[r][2] = fva_sol.loc[r, 'maximum'] / (abs(sol.fluxes['EX_C00205__dra']) * coeff)
+                ros_reactions[r][1] = 0.01 #fva_sol.loc[r, 'minimum'] / (abs(sol.fluxes['EX_C00205__dra']) * coeff)
+                ros_reactions[r][2] = 0.02# fva_sol.loc[r, 'maximum'] / (abs(sol.fluxes['EX_C00205__dra']) * coeff)
             ros = sum([abs(v[0]) for k, v in ros_reactions.items() if k not in photosystems])
             npq[ue_m2s] = (heat + ros, heat,
                            ros,
@@ -223,7 +222,7 @@ def get_npq(model, coeff, conversion_factor, organism):
     sns.lineplot(x=list(npq.keys()), y=[v[2] for v in npq.values()], label="ROS NPQ", ax=ax[0][0])
 
     for reaction, fluxes in ros_results_by_reaction.items():
-        if not all(v[0] == 0 for v in fluxes.values()) and reaction not in photosystems:
+        if not all(v[0] == 0 for v in fluxes.values()):
             sns.lineplot(x=list(npq.keys()), y=[v[0] for v in fluxes.values()], label=reaction, ax=ax[0][1])
 
     sns.lineplot(x=list(npq.keys()), y=[v[-1] for v in npq.values()], ax=ax[0][2], color='red', label="Growth rate")
@@ -273,23 +272,83 @@ def get_npq(model, coeff, conversion_factor, organism):
     # plt.show()
     return npq
 
+def merge_and_plot_results():
+    plt.rcParams['axes.labelsize'] = 7
+    organisms = ["dsalina", "ngaditana", "plutheri"]
+    photosystems = {"PSII__lum", "R01195__chlo", "PSI__lum", "PSIc6__lum"}
+    ros_reactions = { "CEF__chlo",
+                     "R12570__chlo", "R09540__chlo",
+                     "R00274__chlo"
+                     }
+    index_chars = ["A", "B", "C", "D", "E", "F", "G", "H", "I"]
+    legend_map = {"PSII__lum": "PSII", "R01195__chlo": "FNR", "PSI__lum": "PSI", "PSIc6__lum": "PSI","R12570__chlo": "PRDX", "R09540__chlo": "APX", "R00274__chlo": "GPX"}
+    fig, axs = plt.subplots(3, 3, figsize=(7.08, 5))
+    fig.tight_layout()
+    # plt.subplots_adjust(hspace=0.5)
+    for i, organism in enumerate(organisms):
+        df = pd.read_hdf(f"../results/npq_{organism}.h5", key="npq")
+        for reaction in ros_reactions.union(photosystems):
+            try:
+                tmp = pd.read_hdf(f"../results/npq_{organism}.h5", key=reaction)
+                df[reaction] = tmp["Flux"]
+            except:
+                pass
+        light_intensity = df.index.tolist()
+        ax = axs[i]
+
+        sns.lineplot(x=light_intensity, y=df["Growth rate"], ax=ax[0], color='red', label="Growth rate")
+
+        for reaction in photosystems.intersection(set(df.columns)):
+            if not all(v == 0 for v in df[reaction]):
+                sns.lineplot(x=light_intensity, y=df[reaction], label=legend_map.get(reaction, reaction), ax=ax[1])
+
+        for reaction in ros_reactions.intersection(set(df.columns)):
+            if not all(v == 0 for v in df[reaction]):
+                sns.lineplot(x=light_intensity, y=df[reaction], label=legend_map.get(reaction, reaction), ax=ax[2])
+
+        for axis in ax:
+            for lab in axis.get_yticklabels():
+                lab.set_fontsize(6)
+            for lab in axis.get_xticklabels():
+                lab.set_fontsize(6)
+            # axis.set_xlabel(r"Light intensity ($\mu \mathit{mol} \cdot \mathit{m}^{-2} \cdot \mathit{s}^{-1}$)")
+            axis.set_xlabel(r"Light intensity ($\mu mol \cdot m^{-2} \cdot s^{-1}$)")
+
+        ax[0].set_ylabel("Growth rate ($d^{-1}$)")
+        ax[1].set_ylabel("Flux ($mol / mol_{hn}$)")
+        ax[2].set_ylabel("Flux ($mol / mol_{hn}$)")
+
+        counter = 0
+    for row in axs:
+        for axis in row:
+            axis.legend(fontsize=6)
+            axis.text(-0.3, 1.1, index_chars[counter], transform=axis.transAxes, fontsize=10, fontweight='bold', va='top')
+            counter+=1
+
+    plt.savefig(f"../results/figures/photoprotection_all.pdf", bbox_inches='tight', format="pdf", dpi=1200)
+    # plt.show()
+
+
+
 
 if __name__ == '__main__':
-    ng = MyModel(join(DATA_PATH, 'models/model_ng.xml'), 'e_Biomass__cytop')
-    coeff = sum(e for e in ng.reactions.PRISM_solar_litho__extr.metabolites.values() if e > 0)
-    with ng as tmp:
-        get_npq(tmp, coeff, 8.33, "ngaditana")
+    # ng = MyModel(join(DATA_PATH, 'models/model_ng.xml'), 'e_Biomass__cytop')
+    # coeff = sum(e for e in ng.reactions.PRISM_solar_litho__extr.metabolites.values() if e > 0)
+    # with ng as tmp:
+    #     get_npq(tmp, coeff, 8.33, "ngaditana")
+    #
+    # ds = MyModel(join(DATA_PATH, 'models/model_ds.xml'), 'e_Biomass__cytop')
+    # coeff = sum(e for e in ds.reactions.PRISM_solar_litho__extr.metabolites.values() if e > 0)
+    # with ds as tmp:
+    #     get_npq(tmp, coeff, 2.99, "dsalina")
+    #
+    # pl = MyModel(join(DATA_PATH, 'models/model_pl.xml'), 'e_Biomass__cytop')
+    # print(pl.slim_optimize())
+    # coeff = sum(e for e in pl.reactions.PRISM_solar_litho__extr.metabolites.values() if e > 0)
+    # with pl as tmp:
+    #     get_npq(tmp, coeff, 6.98, "plutheri")
 
-    ds = MyModel(join(DATA_PATH, 'models/model_ds.xml'), 'e_Biomass__cytop')
-    coeff = sum(e for e in ds.reactions.PRISM_solar_litho__extr.metabolites.values() if e > 0)
-    with ds as tmp:
-        get_npq(tmp, coeff, 2.99, "dsalina")
-
-    pl = MyModel(join(DATA_PATH, 'models/model_pl.xml'), 'e_Biomass__cytop')
-    print(pl.slim_optimize())
-    coeff = sum(e for e in pl.reactions.PRISM_solar_litho__extr.metabolites.values() if e > 0)
-    with pl as tmp:
-        get_npq(tmp, coeff, 6.98, "plutheri")
+    merge_and_plot_results()
 
     # wave_lenghts = {"298": [281, 306],
     #                 "437": [406, 454],
