@@ -44,7 +44,7 @@ def adjust_biomass(model, metabolite, macro_reaction, macromolecule, g_gdw):
     last_version = max([int(reaction.id.split("__")[-2].split("_")[-1].lstrip("v")) for reaction in biomass_reactions] + [0])
     biomass_copy.id = biomass_copy.id.replace("__cytop", f"_v{last_version + 1}__cytop")
     model.add_reactions([biomass_copy])
-    biomass_copy.backtrace = f"Changed biomass reaction to account for {metabolite.id} content of {g_gdw} g/gDW"
+    biomass_copy.backtrace = f"Changed experimental reaction to account for {metabolite.id} content of {g_gdw} g/gDW"
     new_st = g_gdw * 1000 / metabolite.formula_weight / biomass_copy.metabolites[macromolecule]
     model.set_stoichiometry(macro_reaction, metabolite.id, new_st)
     old_g_gDW_sum = abs(sum([biomass_copy.metabolites[reactant] for reactant in biomass_copy.reactants if biomass_copy.metabolites[reactant] > -1 and reactant != macromolecule]))

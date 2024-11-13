@@ -73,6 +73,19 @@ def integrate_for_wave_length(df: pd.DataFrame, wave_range: list, pigments: set[
 
 
 def main(organism, light_intensity):
+    """
+    Main function to calculate the absorption of light by pigments
+    Data to determine the xanthophyll percentage at each light uptake was inferred from  10.1073/PNAS.2214119120/FORMAT/EPUB.
+
+    Parameters
+    ----------
+    organism
+    light_intensity
+
+    Returns
+    -------
+
+    """
     original_biomass_mass = {"ngaditana": {"Chlorophyll-a": 14.418, "B,B-carotene": 0.173, "Zeaxanthin": 0.174, "Violaxanthin": 1.652, "Antheraxanthin": 0.388},
                              "dsalina": {"Chlorophyll-a": 5.962, "Chlorophyll-b": 4.3195, "B,B-carotene": 0.9732, "Lutein": 2.6201, "Zeaxanthin": 0.1909,
                                          "Violaxanthin": 0.4540, "Neoxanthin": 0.4970, "cis-B-carotene": 0.9732, "Antheraxanthin": 0.4522},
@@ -119,6 +132,18 @@ def main(organism, light_intensity):
 
 
 def update_model(model, organism, light_intensity):
+    """
+    Update the model with the absorption of light by pigments.
+    Parameters
+    ----------
+    model
+    organism
+    light_intensity
+
+    Returns
+    -------
+
+    """
     metabolites_map = {"Chlorophyll-a": ("C05306", "chla_soret_exc", "chla_qy2_exc"),
                        "Chlorophyll-b": ("C05307", "chlb_soret_exc", "chlb_qy2_exc"),
                        "chlorophyll c1": ("CPD_10336", "chlc1_soret_exc", "chlc1_qy2_exc"),
@@ -148,8 +173,24 @@ def update_model(model, organism, light_intensity):
     return model
 
 
-def get_npq(model, coeff, conversion_factor, organism):
+def evaluate_photosynthesis(model, conversion_factor, organism):
+    """
+    Evaluate the photosynthesis process, including growth rate, and the flux of photosystems and ROS reactions.
+    Parameters
+    ----------
+    model: MyModel
+        GSM model
+    conversion_factor: float
+        Conversion factor from uE.m-2.s-1 to mmol.gDW-1.d-1
+    organism: str
+        Organism name
+
+    Returns
+    -------
+
+    """
     model.set_prism_reaction("PRISM_solar_litho__extr")
+    coeff = sum(e for e in pl.reactions.PRISM_solar_litho__extr.metabolites.values() if e > 0)
     for rxn in model.reactions:
         if rxn.lower_bound <= -1000:
             rxn.lower_bound = -20000
@@ -200,8 +241,8 @@ def get_npq(model, coeff, conversion_factor, organism):
             # print(sol.fluxes["CEF_2__chlo"]/(sol.fluxes["CEF_2__chlo"]+ sol.fluxes["R01195__chlo"]))
             for r in ros_reactions:
                 ros_reactions[r][0] = sol.fluxes[r] / (abs(sol.fluxes['EX_C00205__dra']) * coeff)
-                ros_reactions[r][1] = 0.01 #fva_sol.loc[r, 'minimum'] / (abs(sol.fluxes['EX_C00205__dra']) * coeff)
-                ros_reactions[r][2] = 0.02# fva_sol.loc[r, 'maximum'] / (abs(sol.fluxes['EX_C00205__dra']) * coeff)
+                ros_reactions[r][1] = 0.01  #fva_sol.loc[r, 'minimum'] / (abs(sol.fluxes['EX_C00205__dra']) * coeff)
+                ros_reactions[r][2] = 0.02  # fva_sol.loc[r, 'maximum'] / (abs(sol.fluxes['EX_C00205__dra']) * coeff)
             ros = sum([abs(v[0]) for k, v in ros_reactions.items() if k not in photosystems])
             npq[ue_m2s] = (heat + ros, heat,
                            ros,
@@ -272,39 +313,53 @@ def get_npq(model, coeff, conversion_factor, organism):
     # plt.show()
     return npq
 
+
 def merge_and_plot_results():
+    """
+    Reads the results from the evaluate_photosynthesis function and plots the results.
+    Returns
+    -------
+
+    """
     plt.rcParams['axes.labelsize'] = 7
-    organisms = ["dsalina", "ngaditana", "plutheri"]
+    plt.rcParams['axes.titlesize'] = 8
+    organisms = {"dsalina": "D. salina", "ngaditana": "N. gaditana", "plutheri": "P. lutheri"}
     photosystems = {"PSII__lum", "R01195__chlo", "PSI__lum", "PSIc6__lum"}
-    ros_reactions = { "CEF__chlo",
+    ros_reactions = {"CEF__chlo",
                      "R12570__chlo", "R09540__chlo",
                      "R00274__chlo"
                      }
     index_chars = ["A", "B", "C", "D", "E", "F", "G", "H", "I"]
-    legend_map = {"PSII__lum": "PSII", "R01195__chlo": "FNR", "PSI__lum": "PSI", "PSIc6__lum": "PSI","R12570__chlo": "PRDX", "R09540__chlo": "APX", "R00274__chlo": "GPX"}
+    legend_map = {"PSII__lum": "PSII", "R01195__chlo": "FNR", "PSI__lum": "PSI", "PSIc6__lum": "PSI", "R12570__chlo": "PRDX", "R09540__chlo": "APX", "R00274__chlo": "GPX",
+                  "CEF__chlo": "CEF"}
     fig, axs = plt.subplots(3, 3, figsize=(7.08, 5))
     fig.tight_layout()
     # plt.subplots_adjust(hspace=0.5)
-    for i, organism in enumerate(organisms):
-        df = pd.read_hdf(f"../results/npq_{organism}.h5", key="npq")
+    for i, (abb, organism) in enumerate(organisms.items()):
+        df = pd.read_hdf(f"../results/npq_{abb}.h5", key="npq")
         for reaction in ros_reactions.union(photosystems):
             try:
-                tmp = pd.read_hdf(f"../results/npq_{organism}.h5", key=reaction)
+                tmp = pd.read_hdf(f"../results/npq_{abb}.h5", key=reaction)
                 df[reaction] = tmp["Flux"]
             except:
                 pass
         light_intensity = df.index.tolist()
         ax = axs[i]
 
-        sns.lineplot(x=light_intensity, y=df["Growth rate"], ax=ax[0], color='red', label="Growth rate")
+        sns.lineplot(x=light_intensity, y=df["Growth rate"], ax=axs[0][i], color='red', label="Growth rate")
+        axs[0][i].set_xticks(range(0, max(light_intensity) + 50, 250))
+        axs[0][i].set_title(organism, style='italic')
 
-        for reaction in photosystems.intersection(set(df.columns)):
+        for reaction in sorted(list(photosystems.intersection(set(df.columns)))):
             if not all(v == 0 for v in df[reaction]):
-                sns.lineplot(x=light_intensity, y=df[reaction], label=legend_map.get(reaction, reaction), ax=ax[1])
+                sns.lineplot(x=light_intensity, y=df[reaction], label=legend_map.get(reaction, reaction), ax=axs[1][i])
+                # set xticks
+                axs[1][i].set_xticks(range(0, max(light_intensity) + 50, 250))
 
-        for reaction in ros_reactions.intersection(set(df.columns)):
+        for reaction in sorted(list(ros_reactions.intersection(set(df.columns)))):
             if not all(v == 0 for v in df[reaction]):
-                sns.lineplot(x=light_intensity, y=df[reaction], label=legend_map.get(reaction, reaction), ax=ax[2])
+                sns.lineplot(x=light_intensity, y=df[reaction], label=legend_map.get(reaction, reaction), ax=axs[2][i])
+                axs[2][i].set_xticks(range(0, max(light_intensity) + 50, 250))
 
         for axis in ax:
             for lab in axis.get_yticklabels():
@@ -314,39 +369,33 @@ def merge_and_plot_results():
             # axis.set_xlabel(r"Light intensity ($\mu \mathit{mol} \cdot \mathit{m}^{-2} \cdot \mathit{s}^{-1}$)")
             axis.set_xlabel(r"Light intensity ($\mu mol \cdot m^{-2} \cdot s^{-1}$)")
 
-        ax[0].set_ylabel("Growth rate ($d^{-1}$)")
-        ax[1].set_ylabel("Flux ($mol / mol_{hn}$)")
-        ax[2].set_ylabel("Flux ($mol / mol_{hn}$)")
-
-        counter = 0
+        axs[0][i].set_ylabel("Growth rate ($d^{-1}$)")
+        axs[1][i].set_ylabel("Flux ($mol / mol_{hn}$)")
+        axs[2][i].set_ylabel("Flux ($mol / mol_{hn}$)")
+    counter = 0
     for row in axs:
         for axis in row:
             axis.legend(fontsize=6)
             axis.text(-0.3, 1.1, index_chars[counter], transform=axis.transAxes, fontsize=10, fontweight='bold', va='top')
-            counter+=1
+            counter += 1
 
     plt.savefig(f"../results/figures/photoprotection_all.pdf", bbox_inches='tight', format="pdf", dpi=1200)
     # plt.show()
 
 
-
-
 if __name__ == '__main__':
-    # ng = MyModel(join(DATA_PATH, 'models/model_ng.xml'), 'e_Biomass__cytop')
-    # coeff = sum(e for e in ng.reactions.PRISM_solar_litho__extr.metabolites.values() if e > 0)
-    # with ng as tmp:
-    #     get_npq(tmp, coeff, 8.33, "ngaditana")
-    #
-    # ds = MyModel(join(DATA_PATH, 'models/model_ds.xml'), 'e_Biomass__cytop')
-    # coeff = sum(e for e in ds.reactions.PRISM_solar_litho__extr.metabolites.values() if e > 0)
-    # with ds as tmp:
-    #     get_npq(tmp, coeff, 2.99, "dsalina")
-    #
-    # pl = MyModel(join(DATA_PATH, 'models/model_pl.xml'), 'e_Biomass__cytop')
-    # print(pl.slim_optimize())
-    # coeff = sum(e for e in pl.reactions.PRISM_solar_litho__extr.metabolites.values() if e > 0)
-    # with pl as tmp:
-    #     get_npq(tmp, coeff, 6.98, "plutheri")
+    ng = MyModel(join(DATA_PATH, 'models/model_ng.xml'), 'e_Biomass__cytop')
+    with ng as tmp:
+        evaluate_photosynthesis(tmp,  8.33, "ngaditana")
+
+    ds = MyModel(join(DATA_PATH, 'models/model_ds.xml'), 'e_Biomass__cytop')
+    with ds as tmp:
+        evaluate_photosynthesis(tmp, 2.99, "dsalina")
+
+    pl = MyModel(join(DATA_PATH, 'models/model_pl.xml'), 'e_Biomass__cytop')
+    print(pl.slim_optimize())
+    with pl as tmp:
+        evaluate_photosynthesis(tmp, 6.98, "plutheri")
 
     merge_and_plot_results()
 
