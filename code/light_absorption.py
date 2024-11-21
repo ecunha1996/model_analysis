@@ -190,7 +190,7 @@ def evaluate_photosynthesis(model, conversion_factor, organism):
 
     """
     model.set_prism_reaction("PRISM_solar_litho__extr")
-    coeff = sum(e for e in pl.reactions.PRISM_solar_litho__extr.metabolites.values() if e > 0)
+    coeff = sum(e for e in model.reactions.PRISM_solar_litho__extr.metabolites.values() if e > 0)
     for rxn in model.reactions:
         if rxn.lower_bound <= -1000:
             rxn.lower_bound = -20000
@@ -200,13 +200,25 @@ def evaluate_photosynthesis(model, conversion_factor, organism):
         model.reactions.R00024__chlo.flux_expression * 0.025 - model.reactions.R03140__chlo.flux_expression,
         lb=-1000,
         ub=0)
-    model.add_cons_vars(same_flux)
+
+    max_cef_lef_ratio = {'ngaditana': 0.1, 'dsalina': 0.9, 'plutheri': 0.90}  # sol.fluxes['CEF__chlo'] / (sol.fluxes['R01195__chlo'] + sol.fluxes['CEF__chlo'])
+    cef_constrain = model.problem.Constraint(
+        model.reactions.CEF__chlo.flux_expression * (1 - max_cef_lef_ratio[organism]) - model.reactions.R01195__chlo.flux_expression * max_cef_lef_ratio[organism],
+        lb=-1000,
+        ub=0)
+    model.add_cons_vars([same_flux, cef_constrain])
     plt.rcParams['figure.figsize'] = (40, 20)
     max_photosynthesis = {"dsalina": 177.8, "ngaditana": 136.5, "plutheri": 44.7}
-    step_size = {"dsalina": 50, "ngaditana": 50, "plutheri": 30}
+    step_size = {"dsalina": 20, "ngaditana": 20, "plutheri": 20}
     model.reactions.PSII__lum.bounds = (0, max_photosynthesis[organism])
     with model as tmp:
         old_co2 = pfba(tmp).fluxes["EX_C00011__dra"]
+        max_growth = tmp.slim_optimize()
+        factor = 10 ** 2
+        tmp.reactions.e_Biomass__cytop.bounds = (math.floor(max_growth * factor)/factor, 1000)
+        tmp.exchanges.EX_C00205__dra.bounds = (-10000, 10000)
+        tmp.objective = "EX_C00205__dra"
+        print(tmp.slim_optimize()/conversion_factor)
         # tmp.exchanges.EX_C00205__dra.bounds = (-10000, 10000)
         # tmp.objective = "EX_C00205__dra"
         # tmp.objective_direction = "max"
@@ -216,42 +228,56 @@ def evaluate_photosynthesis(model, conversion_factor, organism):
     model.exchanges.EX_C00011__dra.lower_bound = old_co2
     npq = {}
     # uptake = range(int(round(abs(min_val), 0)), int(round(max_val, 0)), 100)
-    uptake = range(0, int(round(1050)), step_size[organism])
+    uptake = range(0, int(round(1020)), step_size[organism])
     ros_reactions = {"FLV__chlo", "CEF__chlo",
                      # "NGAM_D1__chlo",
                      "R12570__chlo", "R09540__chlo",
                      "R00274__chlo", "R00017__mito",
                      "PSII__lum", "R01195__chlo", "PSI__lum", "PSIc6__lum"
                      }
-    photosystems = {"PSII__lum", "R01195__chlo", "PSI__lum"}
+    photosystems = {"PSII__lum", "R01195__chlo", "PSI__lum", "PSIc6__lum"}
     ros_reactions = {key: [0, 0, 0] for key in ros_reactions if key in model.reaction_ids}
     ros_results_by_light = {}
     ros_results_by_reaction = {}
     for ue_m2s in tqdm(uptake):
-        mmol_gdwd = conversion_factor * ue_m2s
-        model = update_model(model, organism, ue_m2s)
-        model.exchanges.EX_C00205__dra.bounds = (-mmol_gdwd, -mmol_gdwd)
-        ngam = ue_m2s * 0.022 + 6.85
-        model.reactions.NGAM__lum.bounds = (ngam, ngam)
-        sol = model.maximize(value=False)
-        if not isinstance(sol, int):
-            # fva_sol = fva(model, list(ros_reactions.keys()), fraction_of_optimum=0.95, processes=6)
-            # print(sol.fluxes['DM_pho_loss__chlo'] / abs(sol.fluxes['EX_C00205__dra'])* coeff)
-            heat = sol.fluxes['DM_pho_loss__chlo'] / (abs(sol.fluxes['EX_C00205__dra']) * coeff)
-            # print(sol.fluxes["CEF_2__chlo"]/(sol.fluxes["CEF_2__chlo"]+ sol.fluxes["R01195__chlo"]))
-            for r in ros_reactions:
-                ros_reactions[r][0] = sol.fluxes[r] / (abs(sol.fluxes['EX_C00205__dra']) * coeff)
-                ros_reactions[r][1] = 0.01  #fva_sol.loc[r, 'minimum'] / (abs(sol.fluxes['EX_C00205__dra']) * coeff)
-                ros_reactions[r][2] = 0.02  # fva_sol.loc[r, 'maximum'] / (abs(sol.fluxes['EX_C00205__dra']) * coeff)
-            ros = sum([abs(v[0]) for k, v in ros_reactions.items() if k not in photosystems])
-            npq[ue_m2s] = (heat + ros, heat,
-                           ros,
-                           sol.fluxes["e_Biomass__cytop"])
-            ros_results_by_light[ue_m2s] = copy.deepcopy(ros_reactions)
-            for r, val in ros_reactions.items():
-                if r not in ros_results_by_reaction:
-                    ros_results_by_reaction[r] = {}
-                ros_results_by_reaction[r][ue_m2s] = copy.deepcopy(val)
+        with model as tmp:
+            mmol_gdwd = conversion_factor * ue_m2s
+            tmp = update_model(tmp, organism, ue_m2s)
+            tmp.exchanges.EX_C00205__dra.bounds = (-mmol_gdwd, -mmol_gdwd)
+            ngam = ue_m2s * 0.022 + 6.85
+            tmp.reactions.NGAM__lum.bounds = (ngam, ngam)
+            npq_tmp = (ue_m2s * 0.0574+33.556) /100
+            max_npq = {"dsalina": 0.37, "ngaditana": 0.68, "plutheri": 0.68}[organism]
+            if npq_tmp > max_npq:
+                npq_tmp = max_npq
+            npq_constrain_ps2 = tmp.problem.Constraint(
+                tmp.reactions.CHLAPSIIdex__chlo.flux_expression * (1 - npq_tmp) - tmp.reactions.PSIICSa__chlo.flux_expression * npq_tmp,
+                lb=-1000,
+                ub=0)
+            tmp.add_cons_vars([npq_constrain_ps2])
+            sol = tmp.maximize(value=False)
+            # sol = model.optimize()
+            if not isinstance(sol, int) and sol.status == "optimal":
+                # fva_sol = fva(model, list(ros_reactions.keys()), fraction_of_optimum=0.99, processes=6)
+                # print(sol.fluxes['DM_pho_loss__chlo'] / abs(sol.fluxes['EX_C00205__dra'])* coeff)
+                heat = sol.fluxes['DM_pho_loss__chlo'] / (abs(sol.fluxes['EX_C00205__dra']) * coeff)
+                print(f"HEAT: {heat}")
+                # print(f"CEF: {sol.fluxes['CEF__chlo'] / (sol.fluxes['R01195__chlo'] + sol.fluxes['CEF__chlo'])}")
+                # print(f"NPQ: {sol.fluxes['CHLAPSIIdex__chlo'] / (sol.fluxes['flux_expression'] + sol.fluxes['CHLAPSIIdex__chlo'])}")
+                # print(sol.fluxes["CEF_2__chlo"]/(sol.fluxes["CEF_2__chlo"]+ sol.fluxes["R01195__chlo"]))
+                for r in ros_reactions:
+                    ros_reactions[r][0] = sol.fluxes[r] / (abs(sol.fluxes['EX_C00205__dra']) * coeff)
+                    ros_reactions[r][1] = 0 #fva_sol.loc[r, 'minimum'] / (abs(sol.fluxes['EX_C00205__dra']) * coeff)
+                    ros_reactions[r][2] =0# fva_sol.loc[r, 'maximum'] / (abs(sol.fluxes['EX_C00205__dra']) * coeff)
+                ros = sum([abs(v[0]) for k, v in ros_reactions.items() if k not in photosystems])
+                npq[ue_m2s] = (heat + ros, heat,
+                               ros,
+                               sol.fluxes["e_Biomass__cytop"])
+                ros_results_by_light[ue_m2s] = copy.deepcopy(ros_reactions)
+                for r, val in ros_reactions.items():
+                    if r not in ros_results_by_reaction:
+                        ros_results_by_reaction[r] = {}
+                    ros_results_by_reaction[r][ue_m2s] = copy.deepcopy(val)
 
     # create fig with two plots
     n_rows = int(1 + round(len(ros_results_by_reaction) / 3 + 0.50, 0))
@@ -321,20 +347,26 @@ def merge_and_plot_results():
     -------
 
     """
+    # plt.style.use('seaborn-whitegrid')
+    sns.set_theme(context='paper', style='ticks', palette="colorblind",  font='Arial')
     plt.rcParams['axes.labelsize'] = 7
     plt.rcParams['axes.titlesize'] = 8
+    plt.rcParams.update({
+        "font.family": "sans-serif",
+        "font.sans-serif": "Arial",
+    })
     organisms = {"dsalina": "D. salina", "ngaditana": "N. gaditana", "plutheri": "P. lutheri"}
     photosystems = {"PSII__lum", "R01195__chlo", "PSI__lum", "PSIc6__lum"}
     ros_reactions = {"CEF__chlo",
                      "R12570__chlo", "R09540__chlo",
                      "R00274__chlo"
                      }
-    index_chars = ["A", "B", "C", "D", "E", "F", "G", "H", "I"]
+    index_chars = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"]
     legend_map = {"PSII__lum": "PSII", "R01195__chlo": "FNR", "PSI__lum": "PSI", "PSIc6__lum": "PSI", "R12570__chlo": "PRDX", "R09540__chlo": "APX", "R00274__chlo": "GPX",
                   "CEF__chlo": "CEF"}
-    fig, axs = plt.subplots(3, 3, figsize=(7.08, 5))
+    fig, axs = plt.subplots(4, 3, figsize=(7.08, 6.2))
     fig.tight_layout()
-    # plt.subplots_adjust(hspace=0.5)
+    plt.subplots_adjust(hspace=0.5)
     for i, (abb, organism) in enumerate(organisms.items()):
         df = pd.read_hdf(f"../results/npq_{abb}.h5", key="npq")
         for reaction in ros_reactions.union(photosystems):
@@ -347,20 +379,29 @@ def merge_and_plot_results():
         ax = axs[i]
 
         sns.lineplot(x=light_intensity, y=df["Growth rate"], ax=axs[0][i], color='red', label="Growth rate")
-        axs[0][i].set_xticks(range(0, max(light_intensity) + 50, 250))
+        axs[0][i].set_xticks(range(0, max(light_intensity) + 50, 200))
         axs[0][i].set_title(organism, style='italic')
 
         for reaction in sorted(list(photosystems.intersection(set(df.columns)))):
             if not all(v == 0 for v in df[reaction]):
                 sns.lineplot(x=light_intensity, y=df[reaction], label=legend_map.get(reaction, reaction), ax=axs[1][i])
                 # set xticks
-                axs[1][i].set_xticks(range(0, max(light_intensity) + 50, 250))
+                axs[1][i].set_xticks(range(0, max(light_intensity) + 50, 200))
 
         for reaction in sorted(list(ros_reactions.intersection(set(df.columns)))):
             if not all(v == 0 for v in df[reaction]):
                 sns.lineplot(x=light_intensity, y=df[reaction], label=legend_map.get(reaction, reaction), ax=axs[2][i])
-                axs[2][i].set_xticks(range(0, max(light_intensity) + 50, 250))
-
+                axs[2][i].set_xticks(range(0, max(light_intensity) + 50, 200))
+        # add heat to axs[2][i] in a secondary axis
+        df["Heat NPQ"] = df["Heat NPQ"].round(2)
+        sns.lineplot(x=light_intensity, y=df["Heat NPQ"], ax=axs[3][i], label="Y(NPQ)")
+        axs[3][i].set_xticks(range(0, max(light_intensity) + 50, 200))
+        for lab in axs[3][i].get_yticklabels():
+            lab.set_fontsize(6)
+        for lab in axs[3][i].get_xticklabels():
+            lab.set_fontsize(6)
+        # set fontsize
+        # merge legends
         for axis in ax:
             for lab in axis.get_yticklabels():
                 lab.set_fontsize(6)
@@ -372,11 +413,14 @@ def merge_and_plot_results():
         axs[0][i].set_ylabel("Growth rate ($d^{-1}$)")
         axs[1][i].set_ylabel("Flux ($mol / mol_{hn}$)")
         axs[2][i].set_ylabel("Flux ($mol / mol_{hn}$)")
+        axs[3][i].set_ylabel("Flux ($mol / mol_{hn}$)")
+        axs[3][i].set_xlabel(r"Light intensity ($\mu mol \cdot m^{-2} \cdot s^{-1}$)")
+
     counter = 0
     for row in axs:
         for axis in row:
             axis.legend(fontsize=6)
-            axis.text(-0.3, 1.1, index_chars[counter], transform=axis.transAxes, fontsize=10, fontweight='bold', va='top')
+            axis.text(-0.25, 1.1, index_chars[counter], transform=axis.transAxes, fontsize=10, fontweight='bold', va='top')
             counter += 1
 
     plt.savefig(f"../results/figures/photoprotection_all.pdf", bbox_inches='tight', format="pdf", dpi=1200)
@@ -384,19 +428,18 @@ def merge_and_plot_results():
 
 
 if __name__ == '__main__':
-    ng = MyModel(join(DATA_PATH, 'models/model_ng.xml'), 'e_Biomass__cytop')
-    with ng as tmp:
-        evaluate_photosynthesis(tmp,  8.33, "ngaditana")
-
-    ds = MyModel(join(DATA_PATH, 'models/model_ds.xml'), 'e_Biomass__cytop')
-    with ds as tmp:
-        evaluate_photosynthesis(tmp, 2.99, "dsalina")
-
+    # ng = MyModel(join(DATA_PATH, 'models/model_ng.xml'), 'e_Biomass__cytop')
+    # with ng as tmp:
+    #     evaluate_photosynthesis(tmp,  3.81, "ngaditana")
+    # # #
+    # ds = MyModel(join(DATA_PATH, 'models/model_ds.xml'), 'e_Biomass__cytop')
+    # with ds as tmp:
+    #     evaluate_photosynthesis(tmp, 2.99, "dsalina")
+    # #
     pl = MyModel(join(DATA_PATH, 'models/model_pl.xml'), 'e_Biomass__cytop')
-    print(pl.slim_optimize())
     with pl as tmp:
-        evaluate_photosynthesis(tmp, 6.98, "plutheri")
-
+        evaluate_photosynthesis(tmp, 4.50, "plutheri")
+    #
     merge_and_plot_results()
 
     # wave_lenghts = {"298": [281, 306],
