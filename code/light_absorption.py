@@ -231,7 +231,7 @@ def evaluate_photosynthesis(model, conversion_factor, organism):
     uptake = range(0, int(round(1020)), step_size[organism])
     ros_reactions = {"FLV__chlo", "CEF__chlo",
                      # "NGAM_D1__chlo",
-                     "R12570__chlo", "R09540__chlo",
+                     "R12570__chlo", "R09540__chlo", "R12571__chlo", "R12571__mito", "R00275__chlo", "R00275__mito", "R00009__pero", "R08360__cytop", "R09540__cytop",
                      "R00274__chlo", "R00017__mito",
                      "PSII__lum", "R01195__chlo", "PSI__lum", "PSIc6__lum"
                      }
@@ -359,11 +359,14 @@ def merge_and_plot_results():
     photosystems = {"PSII__lum", "R01195__chlo", "PSI__lum", "PSIc6__lum"}
     ros_reactions = {"CEF__chlo",
                      "R12570__chlo", "R09540__chlo",
-                     "R00274__chlo"
+                     "R00274__chlo","R12571__chlo", "R12571__mito",
+                     # "R00275__chlo", "R00275__mito",
+                     # "R00009__pero",
+                     "R08360__cytop", "R09540__cytop"
                      }
     index_chars = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"]
     legend_map = {"PSII__lum": "PSII", "R01195__chlo": "FNR", "PSI__lum": "PSI", "PSIc6__lum": "PSI", "R12570__chlo": "PRDX", "R09540__chlo": "APX", "R00274__chlo": "GPX",
-                  "CEF__chlo": "CEF"}
+                  "CEF__chlo": "CEF", "R00275__chlo": "SOD", "R00009__pero": "CAT", "R00275__mito": "SOD"}
     fig, axs = plt.subplots(4, 3, figsize=(7.08, 6.2))
     fig.tight_layout()
     plt.subplots_adjust(hspace=0.5)
@@ -436,9 +439,9 @@ if __name__ == '__main__':
     # with ds as tmp:
     #     evaluate_photosynthesis(tmp, 2.99, "dsalina")
     # #
-    pl = MyModel(join(DATA_PATH, 'models/model_pl.xml'), 'e_Biomass__cytop')
-    with pl as tmp:
-        evaluate_photosynthesis(tmp, 4.50, "plutheri")
+    # pl = MyModel(join(DATA_PATH, 'models/model_pl.xml'), 'e_Biomass__cytop')
+    # with pl as tmp:
+    #     evaluate_photosynthesis(tmp, 4.50, "plutheri")
     #
     merge_and_plot_results()
 
