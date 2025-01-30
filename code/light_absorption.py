@@ -246,7 +246,7 @@ def evaluate_photosynthesis(model, conversion_factor, organism):
             tmp.exchanges.EX_C00205__dra.bounds = (-mmol_gdwd, -mmol_gdwd)
             ngam = ue_m2s * 0.022 + 6.85
             tmp.reactions.NGAM__lum.bounds = (ngam, ngam)
-            npq_tmp = (ue_m2s * 0.0574+33.556) /100
+            npq_tmp = (ue_m2s * 0.0574+33.556) / 100
             max_npq = {"dsalina": 0.37, "ngaditana": 0.68, "plutheri": 0.68}[organism]
             if npq_tmp > max_npq:
                 npq_tmp = max_npq
