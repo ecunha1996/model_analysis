@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="WebServers">
+    <option name="servers">
+      <webServer id="2a38e275-93de-4ffc-8c64-e62953d5c344" name="turing">
+        <fileTransfer accessType="SFTP" host="turing.di.uminho.pt" port="22" sshConfigId="22219f37-0317-43a9-a776-34af83252a4d" sshConfig="ecunha@turing.di.uminho.pt:22 password">
+          <advancedOptions>
+            <advancedOptions dataProtectionLevel="Private" passiveMode="true" shareSSLContext="true" />
+          </advancedOptions>
+        </fileTransfer>
+      </webServer>
+    </option>
+  </component>
+</project>
