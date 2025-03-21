@@ -1,8 +1,8 @@
-# Towards a genome-scale metabolic model of _Dunaliella salina_
+# Reconstruction of genome-scale metabolic models for _Dunaliella salina_, _Nannochloropsis gaditana_, and _Pavlova lutheri_.
 
 ## Introduction
 
-This repository contains the code and data used to develop, evaluate and analyse a genome-scale metabolic model of _Dunaliella salina_,
+This repository contains the code and data used to develop, evaluate and analyse genome-scale metabolic models of _Dunaliella salina_,
 _Nannochloropsis gaditana_, and _Pavlova lutheri_.
 
 ## Data
@@ -36,7 +36,7 @@ To reproduce most results, the packages listed in `requirements.txt` are require
 
 The results of this study are available in the `results` directory. The results are organized as follows:
 
--'figures': Figures generated in the study.
--'npq_x': NPQ values of the models under different light intensities.
+- 'figures': Figures generated in the study.
+- 'npq_x': NPQ values of the models under different light intensities.
 - 'ppp': Phenotype phase planes of the model as PNG figures.
 - 'fseof': Folders containing the results of FSEOF analysis.
